@@ -1,0 +1,77 @@
+name: Node-RED tag selection regression QA
+on:
+  push:
+    branches: [test/node-red-tag-selection]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  editor-runtime:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        node: [20, 24]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm install --prefix "$RUNNER_TEMP/tag-tests" --ignore-scripts --no-audit --no-fund mocha@10.8.2
+      - name: Patched editor and runtime tests
+        run: node "$RUNNER_TEMP/tag-tests/node_modules/mocha/bin/mocha.js" server/test/integrations/nodeRedTagSelection.test.js
+      - name: Verify regression sensitivity against original editors
+        run: |
+          git checkout ed116d1c1cec92c435028d641193d2744f4e80c8 -- server/integrations/node-red/node-red-contrib-fuxa/nodes/fuxa-get-tag.html server/integrations/node-red/node-red-contrib-fuxa/nodes/fuxa-set-tag.html
+          set +e
+          node "$RUNNER_TEMP/tag-tests/node_modules/mocha/bin/mocha.js" server/test/integrations/nodeRedTagSelection.test.js --reporter json > "$RUNNER_TEMP/original-editor-tests.json"
+          result=$?
+          set -e
+          test "$result" = 12
+          REPORT="$RUNNER_TEMP/original-editor-tests.json" node -e 'const r=require(process.env.REPORT); if(r.stats.tests !== 18 || r.stats.failures !== 12 || r.stats.passes !== 6) process.exit(1); console.log(r.stats)'
+  browser:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install isolated browser dependencies
+        run: npm install --prefix "$RUNNER_TEMP/tag-browser" --ignore-scripts --no-audit --no-fund playwright@1.62.1 jquery@3.7.1 @node-red/editor-client@4.1.1 jsdom@26.1.0
+      - name: Install Chromium
+        run: node "$RUNNER_TEMP/tag-browser/node_modules/playwright/cli.js" install --with-deps chromium --only-shell
+      - name: Real Chromium and Node-RED save hooks
+        env:
+          NODE_PATH: ${{ runner.temp }}/tag-browser/node_modules
+        run: node qa/node-red-tag-selection.cjs
+      - name: Verify browser regression sensitivity against original editors
+        env:
+          NODE_PATH: ${{ runner.temp }}/tag-browser/node_modules
+        run: |
+          git checkout ed116d1c1cec92c435028d641193d2744f4e80c8 -- server/integrations/node-red/node-red-contrib-fuxa/nodes/fuxa-get-tag.html server/integrations/node-red/node-red-contrib-fuxa/nodes/fuxa-set-tag.html
+          set +e
+          node qa/node-red-tag-selection.cjs > "$RUNNER_TEMP/original-browser.log" 2>&1
+          result=$?
+          set -e
+          cat "$RUNNER_TEMP/original-browser.log"
+          test "$result" = 1
+          test "$(grep -c '^FAIL ' "$RUNNER_TEMP/original-browser.log")" = 12
+  backend:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: cd server && npm ci --no-audit --no-fund
+      - name: Correct known test import case only in this validation checkout
+        run: sed -i 's@runtime/apikeys/apikeysStorage@runtime/apikeys/apiKeysStorage@' server/test/storage/storage-insert-select.test.js
+      - name: Full backend suite
+        run: cd server && npm test -- --reporter dot

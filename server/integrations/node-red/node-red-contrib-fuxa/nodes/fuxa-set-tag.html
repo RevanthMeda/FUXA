@@ -1,71 +1,56 @@
 <script type="text/javascript">
-    RED.nodes.registerType('set-tag', {
-        category: 'FUXA',
-        color: '#a6bbcf',
-        defaults: {
-            name: {value: ""},
-            tag: {value: ""},
-            tagId: {value: ""}
-        },
-        inputs: 1,
-        outputs: 1,
-        icon: "white-globe.png",
-        label: function() {
-            if (this.name) {
-                return this.name;
-            }
-            return this.tag || this.tagId || "set tag";
-        },
-        oneditprepare: function() {
-            var node = this;
-            var tagMap = {};
+    (function() {
+        function saveTagSelection() {
+            var selectedValue = $('#node-input-tagSelected').val() || '';
+            var match = selectedValue.match(/^(.*)\(([^)]+)\)$/);
+            // A typed name or an empty selection must not retain the previous tag ID.
+            $('#node-input-tag').val(match ? match[1] : selectedValue.trim());
+            $('#node-input-tagId').val(match ? match[2] : '');
+        }
 
-            $.getJSON('/nodered/fuxa/devices', function(data) {
-                var datalist = $('#fuxa-tags-set');
-                datalist.empty();
+        RED.nodes.registerType('set-tag', {
+            category: 'FUXA',
+            color: '#a6bbcf',
+            defaults: {
+                name: {value: ""},
+                tag: {value: ""},
+                tagId: {value: ""}
+            },
+            inputs: 1,
+            outputs: 1,
+            icon: "white-globe.png",
+            label: function() {
+                if (this.name) {
+                    return this.name;
+                }
+                return this.tag || this.tagId || "set tag";
+            },
+            oneditsave: saveTagSelection,
+            oneditprepare: function() {
+                var node = this;
+                // Restore the selection before the request: editing and saving must also
+                // work while the device list is loading or unavailable.
+                $('#node-input-tagSelected').val(node.tagId ?
+                    (node.tag || '') + '(' + node.tagId + ')' : (node.tag || ''));
+                $('#node-input-tagSelected').on('input change', saveTagSelection);
 
-                (data || []).forEach(function(device) {
-                    (device.tags || []).forEach(function(tag) {
-                        var fullName = device.name + ' - ' + tag.name;
-                        var optionValue = tag.name + '(' + tag.id + ')';
-                        datalist.append('<option value="' + optionValue + '">' + fullName + '</option>');
-                        tagMap[tag.id] = {
-                            name: tag.name,
-                            deviceName: device.name,
-                            fullName: fullName
-                        };
+                $.getJSON('/nodered/fuxa/devices', function(data) {
+                    var datalist = $('#fuxa-tags-set');
+                    datalist.empty();
+
+                    (data || []).forEach(function(device) {
+                        (device.tags || []).forEach(function(tag) {
+                            var fullName = device.name + ' - ' + tag.name;
+                            var optionValue = tag.name + '(' + tag.id + ')';
+                            datalist.append($('<option>').val(optionValue).text(fullName));
+                        });
                     });
                 });
 
-                $('#node-input-tagSelected').on('change', function() {
-                    var selectedValue = $(this).val();
-                    var match = selectedValue.match(/^(.+)\(([^)]+)\)$/);
-                    if (match) {
-                        $('#node-input-tag').val(match[1]);
-                        $('#node-input-tagId').val(match[2]);
-                    } else if (!selectedValue || !selectedValue.trim()) {
-                        $('#node-input-tag').val('');
-                        $('#node-input-tagId').val('');
-                    }
-                });
-
-                if (node.tagId && tagMap[node.tagId]) {
-                    var tagName = node.tag || tagMap[node.tagId].name;
-                    $('#node-input-tagSelected').val(tagName + '(' + node.tagId + ')');
-                } else if (node.tag && !node.tagId) {
-                    for (var id in tagMap) {
-                        if (tagMap[id].name === node.tag) {
-                            $('#node-input-tagSelected').val(node.tag + '(' + id + ')');
-                            $('#node-input-tagId').val(id);
-                            break;
-                        }
-                    }
-                }
-            });
-
-            $('#node-input-tagSelected').attr('placeholder', 'Optional - leave empty to use msg.topic');
-        }
-    });
+                $('#node-input-tagSelected').attr('placeholder', 'Optional - leave empty to use msg.topic');
+            }
+        });
+    })();
 </script>
 
 <script type="text/x-red" data-template-name="set-tag">

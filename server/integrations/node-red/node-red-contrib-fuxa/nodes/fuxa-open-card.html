@@ -13,7 +13,7 @@
             return this.name||this.cardName||"open card";
         },
         oneditprepare: function() {
-            $.getJSON('/nodered/fuxa/views', function(data) {
+            $.getJSON('fuxa/views', function(data) {
                 var datalist = $('#fuxa-cards');
                 datalist.empty();
                 data.forEach(function(view) {

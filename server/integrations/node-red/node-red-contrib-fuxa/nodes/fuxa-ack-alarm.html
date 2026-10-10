@@ -14,7 +14,7 @@
             return this.name||"ack alarm";
         },
         oneditprepare: function() {
-            $.getJSON('/nodered/fuxa/alarms', function(data) {
+            $.getJSON('fuxa/alarms', function(data) {
                 var datalist = $('#fuxa-alarms');
                 datalist.empty();
                 data.forEach(function(alarm) {

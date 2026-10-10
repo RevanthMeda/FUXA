@@ -24,6 +24,19 @@ function shouldBypassSpaCatchAll(requestPath, basePath = BASE_PATH) {
         routePath.startsWith('/dashboard');
 }
 
+function getNodeRedPaths(basePath = BASE_PATH) {
+    const normalizedBasePath = (basePath || '').replace(/\/+$/, '');
+    return {
+        adminRoot: normalizedBasePath + '/nodered/',
+        adminMount: normalizedBasePath + '/nodered',
+        nodeRoot: normalizedBasePath + '/dashboard',
+    };
+}
+
+function isNodeRedDashboardRequest(req, basePath = BASE_PATH) {
+    return getPathWithoutBasePath(req.baseUrl || '', basePath) === '/dashboard';
+}
+
 
 const BLOCKED_DEVICE_PROPERTY_KEYS = new Set([
     '__proto__',
@@ -230,10 +243,12 @@ const getCookieValue = (req, name) => {
     return null;
 };
 
-const NODE_RED_AUTH_COOKIE_OPTIONS = {
-    path: '/nodered',
-    sameSite: 'lax',
-};
+function getNodeRedAuthCookieOptions(basePath = BASE_PATH) {
+    return {
+        path: getNodeRedPaths(basePath).adminMount,
+        sameSite: 'lax',
+    };
+}
 
 const verifyApiKey = (runtime, apiKey) => {
     return runtime.apiKeys.getApiKeys().then(stored => {
@@ -251,12 +266,13 @@ const verifyApiKey = (runtime, apiKey) => {
     });
 };
 
-function createNodeRedAuthMiddleware({ settings, runtime, logger, authJwt }) {
+function createNodeRedAuthMiddleware({ settings, runtime, logger, authJwt, basePath = BASE_PATH }) {
+    const nodeRedAuthCookieOptions = getNodeRedAuthCookieOptions(basePath);
     // Allow only dashboard routes as public; require an authenticated user or API key for the editor.
     return (req, res, next) => {
         // Public dashboard UI and its HTTP APIs (served from httpNodeRoot/ui.path).
         // baseUrl comes from Express mount point and is not affected by query/path tricks.
-        if (req.baseUrl === '/dashboard') return next();
+        if (isNodeRedDashboardRequest(req, basePath)) return next();
 
         if (!settings.secureEnabled || settings.nodeRedAuthMode === 'legacy-open') {
             return next();
@@ -293,7 +309,7 @@ function createNodeRedAuthMiddleware({ settings, runtime, logger, authJwt }) {
                 }
                 if (queryToken) {
                     res.cookie('nodered_auth', token, {
-                        ...NODE_RED_AUTH_COOKIE_OPTIONS,
+                        ...nodeRedAuthCookieOptions,
                         httpOnly: true,
                         secure: !!settings.https,
                     });
@@ -307,7 +323,7 @@ function createNodeRedAuthMiddleware({ settings, runtime, logger, authJwt }) {
             })
             .catch(() => {
                 if (cookieToken) {
-                    res.clearCookie('nodered_auth', NODE_RED_AUTH_COOKIE_OPTIONS);
+                    res.clearCookie('nodered_auth', nodeRedAuthCookieOptions);
                 }
                 return res.status(401).json({ error: "unauthorized_error", message: "Invalid token!" });
             });
@@ -333,10 +349,11 @@ async function mountNodeRedIfInstalled({ app, server, settings, runtime, logger,
     const nodeRedRuntimeHelpers = createNodeRedRuntimeHelpers(runtime, devices);
 
     // Minimal Node-RED settings; extend only what is really needed
+    const nodeRedPaths = getNodeRedPaths();
     const redSettings = {
-        httpAdminRoot: '/nodered/',
+        httpAdminRoot: nodeRedPaths.adminRoot,
         // Serve Node-RED HTTP nodes under /dashboard to avoid intercepting FUXA routes
-        httpNodeRoot: '/dashboard',
+        httpNodeRoot: nodeRedPaths.nodeRoot,
         userDir,
         nodesDir: [path.join(__dirname, 'node-red-contrib-fuxa')],
         flowFile: 'flows.json',
@@ -425,8 +442,8 @@ async function mountNodeRedIfInstalled({ app, server, settings, runtime, logger,
 
     // Mount Node-RED admin/editor under /nodered; HTTP nodes (including dashboard)
     // are served from httpNodeRoot ('/dashboard') so they appear at /dashboard/... etc.
-    app.use('/nodered', allowDashboard, RED.httpAdmin);
-    app.use('/dashboard', allowDashboard, RED.httpNode);
+    app.use(nodeRedPaths.adminMount, allowDashboard, RED.httpAdmin);
+    app.use(nodeRedPaths.nodeRoot, allowDashboard, RED.httpNode);
 
     await RED.start();
 
@@ -498,6 +515,9 @@ module.exports = {
     createDevicePropertyHelpers,
     createNodeRedRuntimeHelpers,
     normalizeScriptParameters,
+    getNodeRedPaths,
+    getNodeRedAuthCookieOptions,
+    isNodeRedDashboardRequest,
     getPathWithoutBasePath,
     shouldBypassSpaCatchAll,
 };

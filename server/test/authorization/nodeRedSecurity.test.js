@@ -78,7 +78,7 @@ describe('Node-RED secure mode authorization', () => {
     let expect;
     let middleware;
 
-    function makeMiddleware(settings = {}) {
+    function makeMiddleware(settings = {}, basePath = '') {
         return createNodeRedAuthMiddleware({
             settings: {
                 secureEnabled: true,
@@ -93,7 +93,8 @@ describe('Node-RED secure mode authorization', () => {
             logger: {
                 error() {}
             },
-            authJwt
+            authJwt,
+            basePath,
         });
     }
 
@@ -209,6 +210,28 @@ describe('Node-RED secure mode authorization', () => {
         const result = await authorize({}, { baseUrl: '/dashboard' });
 
         expect(result.allowed).to.equal(true);
+    });
+
+    it('keeps prefixed dashboard routes public', async () => {
+        const prefixedMiddleware = makeMiddleware({}, '/fuxa1');
+        const result = await authorize({}, { baseUrl: '/fuxa1/dashboard' }, prefixedMiddleware);
+
+        expect(result.allowed).to.equal(true);
+    });
+
+    it('scopes authentication cookies to the prefixed Node-RED editor', async () => {
+        const token = jwt.sign({ id: 'operator', groups: 2 }, SECRET, { expiresIn: '1h' });
+        const prefixedMiddleware = makeMiddleware({}, '/fuxa1');
+        const result = await authorize({}, {
+            baseUrl: '/fuxa1/nodered',
+            method: 'GET',
+            query: { token },
+            originalUrl: `/fuxa1/nodered/?token=${token}`,
+            headers: { host: 'localhost' }
+        }, prefixedMiddleware);
+
+        expect(result.res.cookies[0].options.path).to.equal('/fuxa1/nodered');
+        expect(result.res.redirectUrl).to.equal('/fuxa1/nodered/');
     });
 
     it('preserves legacy-open access without credentials', async () => {

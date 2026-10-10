@@ -13,7 +13,7 @@
             return this.name||this.tagName||"get tag id";
         },
         oneditprepare: function() {
-            $.getJSON('/nodered/fuxa/devices', function(data) {
+            $.getJSON('fuxa/devices', function(data) {
                 var datalist = $('#fuxa-tags-id');
                 datalist.empty();
                 data.forEach(function(device) {

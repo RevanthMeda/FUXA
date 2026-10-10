@@ -13,7 +13,7 @@
             return this.name||this.script||"execute script";
         },
         oneditprepare: function() {
-            $.getJSON('/nodered/fuxa/scripts', function(data) {
+            $.getJSON('fuxa/scripts', function(data) {
                 var datalist = $('#fuxa-scripts');
                 datalist.empty();
                 data.forEach(function(script) {

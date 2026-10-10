@@ -14,7 +14,7 @@
             return this.name||this.deviceName||"enable device";
         },
         oneditprepare: function() {
-            $.getJSON('/nodered/fuxa/devices', function(data) {
+            $.getJSON('fuxa/devices', function(data) {
                 var datalist = $('#fuxa-devices-enable');
                 datalist.empty();
                 data.forEach(function(device) {

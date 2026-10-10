@@ -13,7 +13,7 @@
             return this.name||this.viewName||"set view";
         },
         oneditprepare: function() {
-            $.getJSON('/nodered/fuxa/views', function(data) {
+            $.getJSON('fuxa/views', function(data) {
                 var datalist = $('#fuxa-views');
                 datalist.empty();
                 data.forEach(function(view) {

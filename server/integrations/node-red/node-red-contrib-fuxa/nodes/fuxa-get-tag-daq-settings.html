@@ -21,7 +21,7 @@
             var node = this;
             var tagMap = {}; // Use tag.id as key to avoid tag.name duplication issues
             
-            $.getJSON('/nodered/fuxa/devices', function(data) {
+            $.getJSON('fuxa/devices', function(data) {
                 var datalist = $('#fuxa-tags-daq-settings');
                 datalist.empty();
                 

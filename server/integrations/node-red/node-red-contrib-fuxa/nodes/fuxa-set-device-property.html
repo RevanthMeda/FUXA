@@ -15,7 +15,7 @@
             return this.name||this.deviceName||"set device property";
         },
         oneditprepare: function() {
-            $.getJSON('/nodered/fuxa/devices', function(data) {
+            $.getJSON('fuxa/devices', function(data) {
                 var datalist = $('#fuxa-devices-set-property');
                 datalist.empty();
                 data.forEach(function(device) {

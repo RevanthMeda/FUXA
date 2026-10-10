@@ -18,7 +18,7 @@
             var node = this;
             
             // Load available tags for autocomplete
-            $.getJSON('/nodered/fuxa/devices', function(data) {
+            $.getJSON('fuxa/devices', function(data) {
                 var datalist = $('#fuxa-tags-historical');
                 datalist.empty();
                 data.forEach(function(device) {

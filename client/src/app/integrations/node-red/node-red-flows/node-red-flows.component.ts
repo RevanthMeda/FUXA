@@ -53,15 +53,11 @@ export class NodeRedFlowsComponent implements OnInit, OnDestroy {
     loadLink(link: string) {
         this._link = link;
         if (this._link) {
-            // Convert relative URLs to absolute URLs
-            let absoluteUrl = this._link;
-            if (this._link.startsWith('/')) {
-                // Relative URL starting with / - add current origin
-                absoluteUrl = window.location.origin + this._link;
-            } else if (!this._link.startsWith('http://') && !this._link.startsWith('https://')) {
-                // Relative URL without leading / - add current origin and /
-                absoluteUrl = window.location.origin + '/' + this._link;
-            }
+            // Resolve FUXA-local links against the document base so BASE_PATH deployments
+            // keep Node-RED under the same reverse-proxy prefix.
+            const isExternalUrl = this._link.startsWith('http://') || this._link.startsWith('https://');
+            const absoluteUrl = isExternalUrl ? this._link :
+                new URL(this._link.replace(/^\/+/, ''), document.baseURI).toString();
             try {
                 const url = new URL(absoluteUrl, window.location.origin);
                 const settings = this.settingsService.getSettings();

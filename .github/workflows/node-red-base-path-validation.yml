@@ -1,0 +1,54 @@
+name: FUXA Node-RED BASE_PATH validation
+
+on:
+  push:
+    branches:
+      - test/node-red-base-path-contract
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-red-tests:
+    name: Node-RED tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci --ignore-scripts
+      - name: Run Node-RED regression suites
+        run: >-
+          npx mocha --timeout 10000
+          test/authorization/nodeRedBasePathRouting.test.js
+          test/authorization/nodeRedSecurity.test.js
+          test/authorization/nodeRedRuntimeHelpers.test.js
+          test/authorization/nodeRedDevicePropertySecurity.test.js
+
+  client-build:
+    name: Angular production build
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx tsc -p src/tsconfig.app.json --noEmit
+      - run: npm run build -- --configuration production

@@ -34,10 +34,12 @@ module.exports = function(RED) {
 
                 // Convert tag names to tag IDs (like advanced reports do)
                 var tagIds = [];
+                var resolvedTagNames = [];
                 for (var i = 0; i < tags.length; i++) {
                     var tagId = fuxa.getTagId(tags[i]);
                     if (tagId) {
                         tagIds.push(tagId);
+                        resolvedTagNames.push(tags[i]);
                     } else {
                         node.warn('Tag not found: ' + tags[i]);
                     }
@@ -54,7 +56,7 @@ module.exports = function(RED) {
                                 return item && item.x !== undefined && item.y !== undefined && item.y !== null;
                             });
                             // Convert back to tag name keys for consistency
-                            var tagName = tags[tagIds.indexOf(tagId)];
+                            var tagName = resolvedTagNames[tagIds.indexOf(tagId)];
                             if (tagName) {
                                 filteredData[tagName] = tagData;
                             }
@@ -62,7 +64,7 @@ module.exports = function(RED) {
                     }
                     
                     msg.payload = filteredData;
-                    msg.topic = tags[0];  // Set topic to first tag name for join operations
+                    msg.topic = resolvedTagNames[0];  // Set topic to first resolved tag for join operations
                     node.send(msg);
                 } else {
                     node.error('No valid tags found', msg);

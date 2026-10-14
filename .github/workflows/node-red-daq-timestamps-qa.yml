@@ -1,0 +1,43 @@
+name: Node-RED DAQ timestamp regression QA
+
+on:
+  push:
+    branches:
+      - test/node-red-daq-timestamps
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    name: Backend tests (Node ${{ matrix.node }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm rebuild sqlite3
+      - name: Focused DAQ regressions (UTC)
+        env:
+          TZ: UTC
+        run: npx mocha test/authorization/nodeRedDaqTimestamps.test.js --reporter spec
+      - name: Focused DAQ regressions (non-UTC)
+        env:
+          TZ: America/New_York
+        run: npx mocha test/authorization/nodeRedDaqTimestamps.test.js --reporter spec
+      - name: Apply existing PR 2587 import-case correction for full-suite validation only
+        run: sed -i 's#../../runtime/apikeys/apikeysStorage#../../runtime/apikeys/apiKeysStorage#' test/storage/storage-insert-select.test.js
+      - name: Full backend suite
+        run: npm test -- --reporter dot

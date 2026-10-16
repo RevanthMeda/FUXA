@@ -1,0 +1,88 @@
+name: Post-merge Node-RED compatibility QA
+
+on:
+  push:
+    branches: [qa/postmerge-node-red-20261016]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: ${{ matrix.snapshot }} / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+        snapshot: [fixed-master, with-alarm-pr]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      # Pin the one-file timer-test fix separately from this QA-only tree.
+      # Neither upstream master nor the submitted PR branch is modified here.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.snapshot == 'fixed-master' && '47e08fd908110b1e191422ec4d6b6faf927f6cba' || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Record the exact tested source and runtime
+        run: |
+          git rev-parse HEAD
+          git rev-parse HEAD:server
+          node --version
+      - run: npm ci
+      - name: Negative validation rejects a wrong elapsed-time implementation
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { spawnSync } = require('node:child_process');
+          const code = `
+            const Mocha = require('mocha');
+            const originalDate = Date;
+            require('./runtime/utils').endTime = () => 9999;
+            const mocha = new Mocha({ grep: 'Utils.endTime', timeout: 10000 });
+            mocha.addFile('test/help/runtimeUtils.test.js');
+            mocha.run(failures => {
+              console.log('clock restored: ' + (Date === originalDate));
+              process.exit(failures ? 1 : 0);
+            });
+          `;
+          const result = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8', timeout: 15000 });
+          assert.ifError(result.error);
+          assert.equal(result.status, 1, result.stdout + result.stderr);
+          assert.match(result.stdout, /returns the exact elapsed milliseconds/);
+          assert.match(result.stdout, /9999 !== 0/);
+          assert.match(result.stdout, /1 failing/);
+          assert.match(result.stdout, /clock restored: true/);
+          console.log('Wrong implementation rejected in its own test; Date restored on failure');
+          NODE
+      - name: Isolated elapsed-time regression
+        run: npx mocha --timeout 10000 test/help/runtimeUtils.test.js --grep Utils.endTime
+      - name: UTC transport, collection-value and history contracts
+        env:
+          TZ: UTC
+        run: |
+          files=(test/integration/daqSocketSessions.test.js test/authorization/nodeRedTagChangeValues.test.js test/authorization/nodeRedDaqTimestamps.test.js test/alarms/*.test.js)
+          if test -f test/authorization/nodeRedAlarmHistoryTimestamps.test.js; then
+            files+=(test/authorization/nodeRedAlarmHistoryTimestamps.test.js)
+          fi
+          npx mocha --timeout 10000 "${files[@]}"
+      - name: New York timestamp contracts
+        env:
+          TZ: America/New_York
+        run: |
+          files=(test/authorization/nodeRedDaqTimestamps.test.js)
+          if test -f test/authorization/nodeRedAlarmHistoryTimestamps.test.js; then
+            files+=(test/authorization/nodeRedAlarmHistoryTimestamps.test.js)
+          fi
+          npx mocha --timeout 10000 "${files[@]}"
+      - name: Complete backend suite without exclusions
+        run: npm test

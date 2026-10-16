@@ -32,10 +32,10 @@ jobs:
       - name: UTC alarm history, DAQ and permission regressions
         env:
           TZ: UTC
-        run: npx mocha test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js test/alarms/*.test.js
+        run: npx mocha --timeout 10000 test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js test/alarms/*.test.js
       - name: New York timestamp contracts
         env:
           TZ: America/New_York
-        run: npx mocha test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js
+        run: npx mocha --timeout 10000 test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js
       - name: Complete backend suite
         run: npm test

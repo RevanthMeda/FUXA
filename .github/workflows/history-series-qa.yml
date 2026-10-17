@@ -1,0 +1,82 @@
+name: Historical series identity QA
+
+on:
+  push:
+    branches: [qa/history-series-names-20261017]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: ${{ matrix.snapshot }} / Node ${{ matrix.node }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+        snapshot: [standalone, with-pending-prs]
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      # QA-only integration carries the exact submitted #2608/#2609 files.
+      # The standalone jobs test only the three-file contribution on current master.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.snapshot == 'standalone' && '8613429aa1bb0d329ef5082c544e90e871e00e1c' || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - name: Record exact source and runtime
+        run: |
+          git rev-parse HEAD
+          git rev-parse HEAD:server
+          node --version
+      - run: npm ci
+      - name: Identity regression rejects the original index-shift behavior
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+          const { spawnSync } = require('node:child_process');
+          const code = `
+            const fs = require('node:fs');
+            const Module = require('node:module');
+            const path = require('node:path');
+            const assert = require('node:assert/strict');
+            const filename = require.resolve('./integrations/node-red/node-red-contrib-fuxa/nodes/fuxa-get-historical-tags');
+            const source = fs.readFileSync(filename, 'utf8');
+            const broken = source.replace('name: tags[i]', 'name: tags[resolvedTags.length]');
+            assert.notEqual(source, broken, 'mutation must apply');
+            const loaded = new Module(filename, module);
+            loaded.filename = filename;
+            loaded.paths = Module._nodeModulePaths(path.dirname(filename));
+            loaded._compile(broken, filename);
+            require.cache[filename] = loaded;
+            const Mocha = require('mocha');
+            const mocha = new Mocha({ timeout: 10000, grep: 'missing tag at index 0' });
+            mocha.addFile('test/authorization/nodeRedHistoricalTagNames.test.js');
+            mocha.run(failures => process.exit(failures ? 1 : 0));
+          `;
+          const result = spawnSync(process.execPath, ['-e', code], { encoding: 'utf8', timeout: 15000 });
+          assert.ifError(result.error);
+          assert.equal(result.status, 1, result.stdout + result.stderr);
+          assert.match(result.stdout, /1 failing/);
+          assert.match(result.stdout, /keeps samples attached to their resolved names/);
+          console.log('Original index-shift behavior rejected by the identity regression');
+          NODE
+      - name: Focused identity and Node-RED contracts in UTC
+        env:
+          TZ: UTC
+        run: npx mocha --timeout 10000 test/authorization/nodeRedHistoricalTagNames.test.js test/authorization/nodeRedDaqTimestamps.test.js test/authorization/nodeRedRuntimeHelpers.test.js test/authorization/nodeRedTagChangeValues.test.js
+      - name: Identity and timestamp contracts in New York
+        env:
+          TZ: America/New_York
+        run: npx mocha --timeout 10000 test/authorization/nodeRedHistoricalTagNames.test.js test/authorization/nodeRedDaqTimestamps.test.js
+      - name: Complete backend suite without exclusions
+        run: npm test

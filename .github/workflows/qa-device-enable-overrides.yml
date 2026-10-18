@@ -1,7 +1,7 @@
-name: Device message override QA
+name: Device lookup override QA
 on:
   push:
-    branches: [qa/device-property-overrides-20261017]
+    branches: [qa/get-device-overrides-20261018]
 permissions:
   contents: read
 jobs:
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           path: source
-          ref: ${{ matrix.variant == 'standalone' && '2adde97fde0d378c3a55abba7ac5c8975d49e390' || github.sha }}
+          ref: ${{ matrix.variant == 'standalone' && 'f30d3d9e4d8867f3ceaf8484b137caf6519a46d9' || github.sha }}
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node }}
@@ -34,11 +34,12 @@ jobs:
           npm --version
       - run: npm ci --no-audit --no-fund
       - name: Focused node and runtime helper regressions
-        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedEnableDeviceOverrides.test.js test/authorization/nodeRedDevicePropertyOverrides.test.js test/authorization/nodeRedRuntimeHelpers.test.js test/authorization/nodeRedDevicePropertySecurity.test.js
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedEnableDeviceOverrides.test.js test/authorization/nodeRedDevicePropertyOverrides.test.js test/authorization/nodeRedGetDeviceOverrides.test.js test/authorization/nodeRedRuntimeHelpers.test.js test/authorization/nodeRedDevicePropertySecurity.test.js
       - name: Reject original override precedence
         run: |
           node ../../server/qa/enable-device-override-negative.cjs
           node ../../server/qa/device-property-override-negative.cjs get
           node ../../server/qa/device-property-override-negative.cjs set
+          node ../../server/qa/get-device-override-negative.cjs
       - name: Full backend suite
         run: npm test -- --reporter dot

@@ -2,6 +2,8 @@
 
 const assert = require('assert');
 const EventEmitter = require('events');
+const fs = require('node:fs');
+const Module = require('node:module');
 const driver = require('../../runtime/devices/genericethernetip');
 
 describe('Generic EtherNet/IP device', function () {
@@ -135,5 +137,86 @@ describe('Generic EtherNet/IP device', function () {
         assert.strictEqual(device.getValues()['io-input'].value, 321);
         await device.disconnect();
         assert.strictEqual(!!device.isConnected(), false);
+    });
+    describe('explicit response payload contract', function () {
+        // Explicit attributes have no selected CIP datatype. Preserve their raw
+        // response; a configured Read Scale Script can opt into interpretation.
+        const payloads = [
+            ['one-byte Buffer', () => Buffer.from([0])],
+            ['multi-byte Buffer', () => Buffer.from([0, 1])],
+            ['one-element array', () => [0]],
+            ['typed array', () => new Uint8Array([0, 1])]
+        ];
+
+        for (const [name, makePayload] of payloads) {
+            for (const withScript of [false, true]) {
+                it(`${withScript ? 'passes to the read script' : 'preserves'} ${name}`, async function () {
+                    const payload = makePayload();
+                    const attributeCalls = [];
+                    const scriptInputs = [];
+                    const errors = [];
+                    const received = [];
+                    let symbolicReads = 0;
+                    class FakeController extends EventEmitter {
+                        async connect() { this.established_conn = true; }
+                        async disconnect() { this.established_conn = false; }
+                        async getAttributeSingle(...args) { attributeCalls.push(args); return payload; }
+                        async readTagGroup() { symbolicReads++; throw new Error('Unexpected symbolic read'); }
+                    }
+                    // Isolate the driver's plugin variable and substitute only
+                    // the transport library, even if a real plugin is installed.
+                    const filename = require.resolve('../../runtime/devices/genericethernetip');
+                    const sourceRequire = Module.createRequire(filename);
+                    const isolated = new Module(filename, module);
+                    isolated.filename = filename;
+                    isolated.require = id => id === 'st-ethernet-ip' ? { Controller: FakeController } : sourceRequire(id);
+                    isolated._compile(fs.readFileSync(filename, 'utf8'), filename);
+
+                    const events = new EventEmitter();
+                    events.on('device-value:changed', event => received.push(event));
+                    const logger = { error(message) { errors.push(message); }, debug() {}, info() {}, warn() {} };
+                    const runtime = {
+                        logger,
+                        scriptsMgr: {
+                            async runScript(script, testMode) {
+                                scriptInputs.push({ script, testMode });
+                                return script.parameters[0].value[0];
+                            }
+                        }
+                    };
+                    const data = {
+                        id: 'explicit-device', name: 'Synthetic adapter', property: { address: '127.0.0.1' },
+                        tags: {
+                            attribute: {
+                                id: 'attribute', name: 'Raw attribute', type: 'number',
+                                enipOptions: { tagType: 1, explicitOpt: { class: 1, instance: 1, attribute: 1, getOrSend: true } },
+                                ...(withScript ? { scaleReadFunction: 'first-element' } : {})
+                            }
+                        }
+                    };
+                    const device = isolated.exports.create(data, logger, events, {}, runtime);
+                    assert.ok(device);
+                    device.load(data);
+                    try {
+                        await device.connect();
+                        await device.polling();
+                        assert.strictEqual(device.getValues().attribute.value, withScript ? 0 : payload);
+                        assert.strictEqual(received.length, 1);
+                        assert.strictEqual(received[0].values.attribute.value, withScript ? 0 : payload);
+                        assert.deepStrictEqual(attributeCalls, [[1, 1, 1, undefined]]);
+                        assert.strictEqual(symbolicReads, 0);
+                        assert.strictEqual(scriptInputs.length, withScript ? 1 : 0);
+                        if (withScript) {
+                            assert.strictEqual(scriptInputs[0].script.id, 'first-element');
+                            assert.strictEqual(scriptInputs[0].script.parameters[0].value, payload);
+                            assert.strictEqual(scriptInputs[0].testMode, false);
+                        }
+                        assert.deepStrictEqual(errors, []);
+                    } finally {
+                        await device.disconnect();
+                    }
+                });
+            }
+        }
     });
 });

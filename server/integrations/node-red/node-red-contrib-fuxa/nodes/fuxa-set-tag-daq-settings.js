@@ -6,10 +6,10 @@ module.exports = function(RED) {
 
         this.on('input', async function(msg) {
             try {
-                // Prefer config.tagId, fallback to config.tag or msg.tag for backward compatibility
-                var tagId = config.tagId;
+                // A message override must resolve independently of the configured ID.
+                var tagName = msg.tag || config.tag;
+                var tagId = msg.tag ? null : config.tagId;
                 if (!tagId) {
-                    var tagName = config.tag || msg.tag;
                     if (tagName) {
                         // Backward compatibility: old nodes use tag.name, need to convert to tagId
                         tagId = fuxa.getTagId(tagName, null);
@@ -32,7 +32,7 @@ module.exports = function(RED) {
                     msg.payload = result;
                     node.send(msg);
                 } else {
-                    node.error('Tag not found: ' + (config.tag || msg.tag || config.tagId), msg);
+                    node.error('Tag not found: ' + (tagName || config.tagId), msg);
                 }
             } catch (err) {
                 node.error(err, msg);

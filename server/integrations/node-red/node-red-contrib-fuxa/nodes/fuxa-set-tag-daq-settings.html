@@ -109,4 +109,6 @@
     <p>Set DAQ settings for a FUXA tag.</p>
     <p>The result is set to <code>msg.payload</code>.</p>
     <p>Use message properties to override: <code>msg.tag</code>, <code>msg.enabled</code>, <code>msg.interval</code>, <code>msg.deadband</code>.</p>
+    <p>A nonempty <code>msg.tag</code> overrides the configured tag, including its saved ID. Without an override, the saved ID is preferred, with the configured tag name as a fallback.</p>
+    <p>An unknown message tag reports an error instead of changing the configured tag.</p>
 </script>

@@ -92,5 +92,6 @@
 <script type="text/x-red" data-help-name="get-tag-daq-settings">
     <p>Get DAQ settings for a FUXA tag.</p>
     <p>The DAQ settings object is set to <code>msg.payload</code>.</p>
-    <p>Use <code>msg.tag</code> to override the configured tag name.</p>
+    <p>A nonempty <code>msg.tag</code> overrides the configured tag, including its saved ID. Without an override, the saved ID is preferred, with the configured tag name as a fallback.</p>
+    <p>An unknown message tag reports an error instead of reading the configured tag.</p>
 </script>

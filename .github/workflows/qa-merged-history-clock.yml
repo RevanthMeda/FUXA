@@ -1,4 +1,4 @@
-name: Merged alarm history and clock QA
+name: Merged history and clock QA
 on:
   push:
     branches: [qa/merged-history-clock-20261021]
@@ -21,7 +21,7 @@ jobs:
         with:
           repository: frangoteam/FUXA
           path: source
-          ref: d900dc9d5c3386a2da3bf37e75e8fbcdcb381981
+          ref: c2d06e63c5c848529126921b9608564510d4f838
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: ${{ matrix.node }}
@@ -29,19 +29,19 @@ jobs:
           cache-dependency-path: source/server/package-lock.json
       - name: Record exact upstream source and runtime
         run: |
-          test "$(git rev-parse HEAD)" = d900dc9d5c3386a2da3bf37e75e8fbcdcb381981
+          test "$(git rev-parse HEAD)" = c2d06e63c5c848529126921b9608564510d4f838
           git rev-parse HEAD
           node --version
           npm --version
       - run: npm ci --no-audit --no-fund
-      - name: Alarm history and DAQ regressions in UTC
+      - name: History names and timestamp regressions in UTC
         env:
           TZ: UTC
-        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js test/alarms/alarmHistory.test.js
-      - name: Alarm history and DAQ regressions in New York
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js test/authorization/nodeRedHistoricalTagNames.test.js test/alarms/alarmHistory.test.js
+      - name: History names and timestamp regressions in New York
         env:
           TZ: America/New_York
-        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js test/alarms/alarmHistory.test.js
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js test/authorization/nodeRedHistoricalTagNames.test.js test/alarms/alarmHistory.test.js
       - name: Deterministic elapsed-time regression
         run: ./node_modules/.bin/mocha --timeout 10000 test/help/runtimeUtils.test.js --grep Utils.endTime
       - name: Reject a wrong elapsed value and verify clock restoration

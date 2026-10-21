@@ -1,0 +1,52 @@
+name: Merged alarm history and clock QA
+on:
+  push:
+    branches: [qa/merged-history-clock-20261021]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: frangoteam/FUXA
+          path: source
+          ref: d900dc9d5c3386a2da3bf37e75e8fbcdcb381981
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Record exact upstream source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = d900dc9d5c3386a2da3bf37e75e8fbcdcb381981
+          git rev-parse HEAD
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: Alarm history and DAQ regressions in UTC
+        env:
+          TZ: UTC
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js test/alarms/alarmHistory.test.js
+      - name: Alarm history and DAQ regressions in New York
+        env:
+          TZ: America/New_York
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedAlarmHistoryTimestamps.test.js test/authorization/nodeRedDaqTimestamps.test.js test/alarms/alarmHistory.test.js
+      - name: Deterministic elapsed-time regression
+        run: ./node_modules/.bin/mocha --timeout 10000 test/help/runtimeUtils.test.js --grep Utils.endTime
+      - name: Reject a wrong elapsed value and verify clock restoration
+        run: node ../../server/qa/runtime-clock-negative.cjs
+      - name: Full backend suite
+        env:
+          TZ: UTC
+        run: npm test -- --reporter dot

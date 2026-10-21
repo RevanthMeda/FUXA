@@ -1,0 +1,41 @@
+name: Node-RED navigation overrides QA
+on:
+  push:
+    branches: [qa/navigation-overrides-20261021]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: d060f1c4f974dba86f4615150d8b66270df409bc
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Record exact source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = d060f1c4f974dba86f4615150d8b66270df409bc
+          git rev-parse HEAD
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: Focused navigation and Node-RED regressions
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedNavigationOverrides.test.js test/authorization/nodeRedRuntimeHelpers.test.js test/authorization/nodeRedSecurity.test.js
+      - name: Reject original navigation selectors
+        run: node ../../server/qa/navigation-overrides-negative.cjs
+      - name: Full backend suite
+        run: npm test -- --reporter dot

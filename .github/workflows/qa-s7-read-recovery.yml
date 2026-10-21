@@ -1,0 +1,41 @@
+name: S7 read recovery QA
+on:
+  push:
+    branches: [qa/s7-read-recovery-20261021]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: 98ad29a2c0a5eb2eb9a0c33d92acea8c0961885c
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Record exact source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = 98ad29a2c0a5eb2eb9a0c33d92acea8c0961885c
+          git rev-parse HEAD
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: Focused S7 and lifecycle regressions
+        run: ./node_modules/.bin/mocha --timeout 10000 test/devices/s7ReadRecovery.test.js test/devices/s7Write.test.js test/devices/deviceLifecycle.test.js
+      - name: Reject original read behavior
+        run: node ../../server/qa/s7-read-recovery-negative.cjs
+      - name: Full backend suite
+        run: npm test -- --reporter dot

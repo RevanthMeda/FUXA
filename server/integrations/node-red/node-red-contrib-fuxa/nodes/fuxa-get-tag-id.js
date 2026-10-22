@@ -6,7 +6,7 @@ module.exports = function(RED) {
 
         this.on('input', async function(msg) {
             try {
-                var tagName = config.tagName || msg.tagName;
+                var tagName = msg.tagName || config.tagName;
                 if (tagName) {
                     var tagId = fuxa.getTagId(tagName, null);
                     msg.payload = tagId;

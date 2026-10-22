@@ -41,5 +41,5 @@
 <script type="text/x-red" data-help-name="get-tag-id">
     <p>Get the ID of a FUXA tag by name.</p>
     <p>The tag ID is set to <code>msg.payload</code>.</p>
-    <p>Use <code>msg.tagName</code> to override the configured tag name.</p>
+    <p>A nonempty <code>msg.tagName</code> overrides the configured tag name. Otherwise the configured name is used.</p>
 </script>

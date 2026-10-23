@@ -146,8 +146,9 @@
     <p><strong>Timestamps:</strong> Can be set in config or overridden via message</p>
     <h4>Message Properties</h4>
     <ul>
-        <li><code>msg.tags</code> - Array of tag names (overrides config)</li>
-        <li><code>msg.from</code> - Start timestamp</li>
-        <li><code>msg.to</code> - End timestamp</li>
+        <li><code>msg.tags</code> - Array of tag names (overrides config). JSON arrays and comma-separated names are also accepted. An explicit empty array selects no tags; unresolved selections never fall back to configured tags.</li>
+        <li><code>msg.from</code> - Start timestamp in milliseconds or a valid date string</li>
+        <li><code>msg.to</code> - End timestamp in milliseconds or a valid date string</li>
     </ul>
+    <p>Absent, null or blank message inputs fall back independently to configuration. Missing timestamps then use the last hour from one clock sample. Numeric timestamp strings are milliseconds, and timestamp <code>0</code> is valid. Invalid or reversed ranges report an error without querying history.</p>
 </script>

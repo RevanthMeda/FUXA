@@ -1,4 +1,22 @@
 module.exports = function(RED) {
+    function hasValue(value) {
+        return value !== undefined && value !== null &&
+            !(typeof value === 'string' && value.trim() === '');
+    }
+
+    function timestamp(messageValue, configuredValue, fallback, name) {
+        var value = hasValue(messageValue) ? messageValue :
+            (hasValue(configuredValue) ? configuredValue : fallback);
+        if (typeof value === 'string') {
+            value = value.trim();
+            value = /^-?\d+(?:\.\d+)?$/.test(value) ? Number(value) : Date.parse(value);
+        }
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+            throw new Error('Invalid ' + name + ' timestamp: use milliseconds or a valid date string');
+        }
+        return value;
+    }
+
     function FuxaGetHistoricalTagsNode(config) {
         RED.nodes.createNode(this, config);
         var node = this;
@@ -6,7 +24,7 @@ module.exports = function(RED) {
 
         this.on('input', async function(msg) {
             try {
-                var tags = config.tags || msg.tags;
+                var tags = hasValue(msg.tags) ? msg.tags : config.tags;
                 
                 // Handle new JSON format
                 if (typeof tags === 'string' && tags.startsWith('[')) {
@@ -21,15 +39,11 @@ module.exports = function(RED) {
                     tags = tags.split(',').map(tag => tag.trim());
                 }
                 
-                var fromts = config.from || msg.from || Date.now() - 3600000; // default 1 hour ago
-                var tots = config.to || msg.to || Date.now();
-
-                // Convert string timestamps to numbers if needed
-                if (typeof fromts === 'string') {
-                    fromts = new Date(fromts).getTime();
-                }
-                if (typeof tots === 'string') {
-                    tots = new Date(tots).getTime();
+                var now = Date.now();
+                var fromts = timestamp(msg.from, config.from, now - 3600000, 'from');
+                var tots = timestamp(msg.to, config.to, now, 'to');
+                if (fromts > tots) {
+                    throw new Error('Invalid historical range: from timestamp must not exceed to timestamp');
                 }
 
                 // Convert tag names to tag IDs (like advanced reports do)

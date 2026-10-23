@@ -6,9 +6,9 @@ module.exports = function(RED) {
 
         this.on('input', async function(msg) {
             try {
-                var address = config.address || msg.address;
-                var subject = config.subject || msg.subject;
-                var message = config.message || msg.message || msg.payload;
+                var address = msg.address || config.address;
+                var subject = msg.subject || config.subject;
+                var message = msg.message || msg.payload || config.message;
                 if (address && subject && message) {
                     await fuxa.sendMessage(address, subject, message);
                     node.send(msg);

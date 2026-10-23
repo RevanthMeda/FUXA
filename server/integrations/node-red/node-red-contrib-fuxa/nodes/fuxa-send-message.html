@@ -39,5 +39,5 @@
 <script type="text/x-red" data-help-name="send-message">
     <p>Send a message via FUXA's notificator.</p>
     <p>Sends to <code>address</code> with <code>subject</code> and <code>message</code>.</p>
-    <p>Use <code>msg.address</code>, <code>msg.subject</code>, <code>msg.message</code> or <code>msg.payload</code> to override.</p>
+    <p>Non-empty <code>msg.address</code> and <code>msg.subject</code> override the configured values. The body uses <code>msg.message</code>, then <code>msg.payload</code>, then the configured <code>message</code>. Empty or missing inputs retain the configured fallbacks.</p>
 </script>

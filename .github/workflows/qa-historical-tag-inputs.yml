@@ -1,0 +1,43 @@
+name: Historical tag message inputs QA
+on:
+  push:
+    branches: [qa/historical-tag-inputs-20261023]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: 905b60310b836565a7c25245559fad2977d0da09
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Record exact source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = 905b60310b836565a7c25245559fad2977d0da09
+          git rev-parse HEAD
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: Focused historical inputs and existing contracts
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedHistoricalTagInputs.test.js test/authorization/nodeRedHistoricalTagNames.test.js test/authorization/nodeRedDaqTimestamps.test.js test/authorization/nodeRedAlarmHistoryTimestamps.test.js
+      - name: Focused contracts in New York
+        run: TZ=America/New_York ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedHistoricalTagInputs.test.js test/authorization/nodeRedHistoricalTagNames.test.js test/authorization/nodeRedDaqTimestamps.test.js test/authorization/nodeRedAlarmHistoryTimestamps.test.js
+      - name: Reject original historical selectors
+        run: node ../../server/qa/historical-tag-inputs-negative.cjs
+      - name: Full backend suite
+        run: npm test -- --reporter dot

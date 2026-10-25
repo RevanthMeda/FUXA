@@ -1,0 +1,45 @@
+name: Disabled HMI control markup QA
+on:
+  push:
+    branches: [qa/hmi-disabled-control-markup-20261025]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: e3bd130b921111319464a7722309761b97266d40
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Verify exact source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = e3bd130b921111319464a7722309761b97266d40
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: Markup and project-filtering regressions
+        run: ./node_modules/.bin/mocha --timeout 10000 test/help/disabledControlMarkup.test.js
+      - name: Reject the original markup helper
+        run: |
+          git fetch --no-tags --depth=1 origin 874a68a59c39baa72fb098e97280d1dcd82b83bf
+          node ../../server/qa/disabled-control-markup-negative.cjs
+      - name: Full backend suite
+        run: npm test -- --reporter dot

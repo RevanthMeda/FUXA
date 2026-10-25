@@ -1,0 +1,33 @@
+'use strict';
+const assert = require('assert').strict;
+const fs = require('fs');
+const path = require('path');
+const Module = require('module');
+const root = process.cwd();
+const Mocha = require(path.join(root, 'node_modules/mocha'));
+const target = path.join(root, 'integrations/node-red/node-red-contrib-fuxa/nodes/fuxa-get-tag.js');
+const original = Module._extensions['.js'];
+let compiled = 0;
+Module._extensions['.js'] = function(mod, filename) {
+    if (filename !== target) return original(mod, filename);
+    const source = fs.readFileSync(filename, 'utf8');
+    const needle = 'msg.payload = snapshotValue(value);';
+    assert.equal(source.split(needle).length, 2);
+    compiled++;
+    mod._compile(source.replace(needle, 'msg.payload = value;'), filename);
+};
+const expected = ['array', 'typed array', 'Buffer', 'nested object', 'nested Buffer'].map(name => 'isolates the queued ' + name + ' from driver and downstream edits').sort();
+const failed = [];
+const mocha = new Mocha({ reporter: 'spec', timeout: 10000 });
+mocha.addFile(path.join(root, 'test/authorization/nodeRedGetTagSnapshot.test.js'));
+const runner = mocha.run(failures => {
+    Module._extensions['.js'] = original;
+    assert.equal(compiled, 1);
+    assert.equal(failures, 5);
+    assert.equal(runner.stats.tests, 15);
+    assert.equal(runner.stats.passes, 10);
+    assert.equal(runner.stats.pending, 0);
+    assert.deepEqual(failed.sort(), expected);
+    console.log('Original payload alias rejected: five exact failures, ten compatibility passes.');
+});
+runner.on('fail', test => failed.push(test.title));

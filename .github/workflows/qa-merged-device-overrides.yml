@@ -1,0 +1,47 @@
+name: Merged device override QA
+on:
+  push:
+    branches: [qa/merged-device-overrides-20261025]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: 3e3e8d2b0d1822b275660e8f1973131ec00a7ac6
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Verify exact merged source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = 3e3e8d2b0d1822b275660e8f1973131ec00a7ac6
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: Device override and helper regressions
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedEnableDeviceOverrides.test.js test/authorization/nodeRedDevicePropertyOverrides.test.js test/authorization/nodeRedGetDeviceOverrides.test.js test/authorization/nodeRedDevicePropertySecurity.test.js test/authorization/nodeRedRuntimeHelpers.test.js
+      - name: Reject original override precedence
+        run: |
+          node ../../server/qa/enable-device-override-negative.cjs
+          node ../../server/qa/device-property-override-negative.cjs get
+          node ../../server/qa/device-property-override-negative.cjs set
+          node ../../server/qa/get-device-override-negative.cjs
+      - name: Full merged backend suite
+        run: npm test -- --reporter dot

@@ -8,6 +8,8 @@
 const fs = require('fs');
 const path = require('path');
 var sqlite3 = require('sqlite3').verbose();
+const Mutex = require('async-mutex').Mutex;
+const alarmWriteMutex = new Mutex();
 
 var settings        // Application settings
 var logger;         // Application logger
@@ -171,7 +173,8 @@ function getAlarms() {
  * Set alarm value in database
  */
 function setAlarms(alarms) {
-    return new Promise(async function (resolve, reject) {
+    // Each complete transaction must own the shared SQLite connection.
+    return alarmWriteMutex.runExclusive(() => new Promise(async function (resolve, reject) {
         if (!alarms || !alarms.length) {
             resolve();
             return;
@@ -204,7 +207,7 @@ function setAlarms(alarms) {
             logger.error('alarmsstorage.failed-to-set: ' + err);
             reject();
         }
-    });
+    }));
 }
 
 /**

@@ -1,0 +1,39 @@
+name: HMI Chromium disabled-state QA
+on:
+  push:
+    branches: [qa/hmi-browser-20261026]
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: f2f24cc04e3be137def7d571ad9a89db170a3dc9
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: 24
+      - name: Verify source and record runtimes
+        run: |
+          test "$(git -C source rev-parse HEAD)" = f2f24cc04e3be137def7d571ad9a89db170a3dc9
+          node --version
+          npm --version
+      - name: Install source dependencies
+        working-directory: source/server
+        run: npm ci --no-audit --no-fund
+      - name: Install isolated browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/hmi-browser" --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/hmi-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Fetch exact previous helper for negative checks
+        working-directory: source
+        run: git fetch --no-tags --depth=1 origin b455853f7064a497c4f5bc9e780f6dbc713b8db4
+      - name: Validate browser disabled state and reject previous helper
+        run: BROWSER_QA_MODULES="$RUNNER_TEMP/hmi-browser/node_modules" node server/qa/hmi-browser.cjs source

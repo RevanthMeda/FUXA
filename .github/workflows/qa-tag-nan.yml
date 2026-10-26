@@ -1,0 +1,42 @@
+name: Node-RED stable NaN tag change QA
+on:
+  push:
+    branches: [qa/tag-nan-20261026]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: 8c2270fbf2a09f61f2b5cde51e42232f08b1c2aa
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Record exact source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = 8c2270fbf2a09f61f2b5cde51e42232f08b1c2aa
+          git rev-parse HEAD
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: Tag read regressions
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRedTagChangeValues.test.js test/authorization/nodeRedGetTagSnapshot.test.js
+      - name: Full backend suite
+        run: npm test -- --reporter dot

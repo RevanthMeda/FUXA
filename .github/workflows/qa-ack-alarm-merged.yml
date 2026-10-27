@@ -1,0 +1,41 @@
+name: Merged alarm acknowledgement regression QA
+on:
+  push:
+    branches: [qa/ack-alarm-merged-20261027]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: 7b4ceda326d23a5c04727289fee104d9269df699
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Record exact source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = 7b4ceda326d23a5c04727289fee104d9269df699
+          git rev-parse HEAD
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: Focused Node-RED and alarm regressions
+        run: ./node_modules/.bin/mocha --timeout 10000 test/authorization/nodeRed*.test.js test/alarms/*.test.js
+      - name: Reject the original acknowledgement selectors
+        run: node ../../server/qa/ack-alarm-override-negative.cjs
+      - name: Full backend suite
+        run: npm test -- --reporter dot

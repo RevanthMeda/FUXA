@@ -93,7 +93,7 @@ function getAverage(timeserie, fromts, tots, intervalType, format) {
     // average
     Object.keys(result).forEach(k => {
         if (counts[k]) {
-            result[k] = utils.parseFloat(result[k] / counts[k], format || 5);
+            result[k] = utils.parseFloat(result[k] / counts[k], format ?? 5);
         }
     });
     return result;

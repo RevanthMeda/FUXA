@@ -1,0 +1,41 @@
+name: DAQ average precision QA
+on:
+  push:
+    branches: [qa/daq-average-precision-20261027]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          path: source
+          ref: 02686bed1e5b8e2d4ab7c49a52bad196b526828f
+          persist-credentials: false
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: source/server/package-lock.json
+      - name: Verify exact source and runtime
+        run: |
+          test "$(git rev-parse HEAD)" = 02686bed1e5b8e2d4ab7c49a52bad196b526828f
+          node --version
+          npm --version
+      - run: npm ci --no-audit --no-fund
+      - name: DAQ average precision regressions
+        run: ./node_modules/.bin/mocha --timeout 10000 test/storage/calculatorAveragePrecision.test.js
+      - name: Full backend suite
+        run: npm test -- --reporter dot

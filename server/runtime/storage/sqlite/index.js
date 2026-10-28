@@ -650,7 +650,7 @@ function checkRetention(dtlimit, dbDir, callbackRemoved, callbackError) {
         var files = fs.readdirSync(archiveDir);
         files.forEach(file => {
             const fromTo = _suffixToTimestamp(file);
-            if (fromTo && fromTo.from < dtlimit.getTime()) {
+            if (fromTo && fromTo.to < dtlimit.getTime()) {
                 try {
                     fs.unlink(path.join(archiveDir, file), (err) => {
                         if (err && callbackError) {

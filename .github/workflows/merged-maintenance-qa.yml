@@ -1,0 +1,41 @@
+name: Merged maintenance QA
+on:
+  push:
+    branches:
+      - qa/merged-maintenance-20261029
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - name: Check out QA definition
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Check out exact merged master
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: b77c43357899ffaa452a475144a4a16ca9926566
+          path: source
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Runtime versions
+        run: node --version && npm --version
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Merged maintenance regressions
+        run: npx mocha --timeout 10000 'test/recipes/*.test.js' test/help/disabledControlMarkup.test.js test/authorization/nodeRedTagChangeValues.test.js test/authorization/nodeRedGetTagSnapshot.test.js test/storage/calculatorExtrema.test.js test/storage/currentReadingsFlush.test.js test/storage/currentReadingsClose.test.js test/storage/daqReportErrors.test.js test/storage/daqArchiveBind.test.js test/storage/daqArchiveCleanup.test.js
+      - name: Complete backend suite
+        run: npm test

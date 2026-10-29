@@ -13,6 +13,8 @@ function QuestDB(_settings, _log, _currentStorage) {
     const tableName = getTableName();
     let writeQueue = Promise.resolve();
     let initPromise = Promise.resolve();
+    let closed = false;
+    let closePromise = null;
 
     this.setCall = function (_fncGetProp) {
         fncGetTagProp = _fncGetProp;
@@ -32,6 +34,9 @@ function QuestDB(_settings, _log, _currentStorage) {
     }
 
     this.addDaqValues = function (tagsValues, deviceName, deviceId) {
+        if (closed) {
+            return;
+        }
         var dataToRestore = [];
         var rowsToWrite = [];
 
@@ -131,18 +136,30 @@ function QuestDB(_settings, _log, _currentStorage) {
     }
 
     this.close = function () {
-        if (sender) {
-            sender.close().catch((error) => {
-                logger.error(`questdb-close sender failed! ${error}`);
-            });
-            sender = null;
+        if (closePromise) {
+            return closePromise;
         }
-        if (pool) {
-            pool.end().catch((error) => {
-                logger.error(`questdb-close pool failed! ${error}`);
-            });
-            pool = null;
-        }
+        closed = true;
+        closePromise = writeQueue.then(async () => {
+            await initPromise;
+            if (sender) {
+                try {
+                    await sender.close();
+                } catch (error) {
+                    logger.error(`questdb-close sender failed! ${error}`);
+                }
+                sender = null;
+            }
+            if (pool) {
+                try {
+                    await pool.end();
+                } catch (error) {
+                    logger.error(`questdb-close pool failed! ${error}`);
+                }
+                pool = null;
+            }
+        });
+        return closePromise;
     }
 
     this.getDaqMap = function (tagid) {

@@ -20,6 +20,7 @@ function HTTPclient(_data, _logger, _events, _runtime) {
     var lastTimestampRequest;           // Last Timestamp request
     var lastTimestampValue;             // Last Timestamp of asked values
     var newItemsCount;                  // Count of new items, between load and received
+    var pollingGeneration = 0;          // Invalidate reads when disconnecting or replacing tags
 
     var apiProperty = { getTags: null, postTags: null, format: 'JSON', ownFlag: true };
 
@@ -65,6 +66,7 @@ function HTTPclient(_data, _logger, _events, _runtime) {
      */
     this.disconnect = function () {
         return new Promise(function (resolve, reject) {
+            pollingGeneration++;
             _checkWorking(false);
             logger.info(`'${data.name}' disconnected!`, true);
             connected = false;
@@ -79,6 +81,10 @@ function HTTPclient(_data, _logger, _events, _runtime) {
      * Update the tags values list, save in DAQ if value changed or in interval and emit values to clients
      */
     this.polling = async function () {
+        if (!connected) {
+            return;
+        }
+        const generation = pollingGeneration;
         if (_checkWorking(true)) {
             // check connection status
             let dt = new Date().getTime();
@@ -88,8 +94,15 @@ function HTTPclient(_data, _logger, _events, _runtime) {
             }
             try {
                 const result = await _readRequest();
+                if (!_ownsPolling(generation)) {
+                    return;
+                }
+                lastTimestampRequest = new Date().getTime();
                 if (result) {
-                    let varsValueChanged = await _updateVarsValue(result);
+                    let varsValueChanged = await _updateVarsValue(result, generation);
+                    if (!_ownsPolling(generation)) {
+                        return;
+                    }
                     lastTimestampValue = new Date().getTime();
                     _emitValues(varsValue);
                     if (this.addDaq && !utils.isEmptyObject(varsValueChanged)) {
@@ -101,8 +114,10 @@ function HTTPclient(_data, _logger, _events, _runtime) {
                 }
                 _checkWorking(false);
             } catch (reason){
-                logger.error(`'${data.name}' _readRequest error! ${reason}`);
-                _checkWorking(false);
+                if (_ownsPolling(generation)) {
+                    logger.error(`'${data.name}' _readRequest error! ${reason}`);
+                    _checkWorking(false);
+                }
             };
         } else {
             _emitStatus('connect-busy');
@@ -137,6 +152,8 @@ function HTTPclient(_data, _logger, _events, _runtime) {
      * Load Tags to read by polling
      */
     this.load = function (_data) {
+        pollingGeneration++;
+        _checkWorking(false);
         varsValue = [];
         data = JSON.parse(JSON.stringify(_data));
         try {
@@ -261,7 +278,6 @@ function HTTPclient(_data, _logger, _events, _runtime) {
         return new Promise(function (resolve, reject) {
             if (apiProperty.getTags) {
                 axios.get(apiProperty.getTags).then(res => {
-                    lastTimestampRequest = new Date().getTime();
                     resolve(res.data);
                 }).catch(err => {
                     reject(err);
@@ -288,7 +304,9 @@ function HTTPclient(_data, _logger, _events, _runtime) {
      * For WebAPI NotOwn: first convert the request data to a flat struct
      * @param {*} reqdata
      */
-    var _updateVarsValue = async (reqdata) => {
+    var _ownsPolling = generation => connected && generation === pollingGeneration;
+
+    var _updateVarsValue = async (reqdata, generation) => {
         const timestamp = new Date().getTime();
         var changed = {};
         if (apiProperty.ownFlag) {
@@ -305,6 +323,9 @@ function HTTPclient(_data, _logger, _events, _runtime) {
                     reqdata[i].changed = varsValue[id] && reqdata[i].value !== varsValue[id].value;
                     if (!utils.isNullOrUndefined(reqdata[i].value)) {
                         reqdata[i].value = await deviceUtils.tagValueCompose(reqdata[i].value, varsValue[id] ? varsValue[id].value : null, data.tags[id], runtime);
+                        if (!_ownsPolling(generation)) {
+                            return null;
+                        }
                         reqdata[i].timestamp = timestamp;
                         if (this.addDaq && deviceUtils.tagDaqToSave(reqdata[i], timestamp)) {
                             changed[id] = reqdata[i];
@@ -342,6 +363,9 @@ function HTTPclient(_data, _logger, _events, _runtime) {
                     result[id].changed = varsValue[id] && result[id].value !== varsValue[id].value;
                     if (!utils.isNullOrUndefined(result[id].value)) {
                         result[id].value = await deviceUtils.tagValueCompose(result[id].value, varsValue[id] ? varsValue[id].value : null, result[id].tagref, runtime);
+                        if (!_ownsPolling(generation)) {
+                            return null;
+                        }
                         result[id].timestamp = timestamp;
                         if (this.addDaq && deviceUtils.tagDaqToSave(result[id], timestamp)) {
                             changed[id] = result[id];

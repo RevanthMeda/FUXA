@@ -27,9 +27,12 @@ function JobsManager(_runtime) {
     this.start = function () {
         return new Promise(function (resolve, reject) {
             logger.info('jobs check start', true);
-            jobsCheckStatus = setInterval(function () {
-                _checkStatus();     // check in 20 seconds interval
-            }, 5000);
+            if (!jobsCheckStatus) {
+                jobsCheckStatus = setInterval(function () {
+                    _checkStatus();     // check in 20 seconds interval
+                }, 5000);
+            }
+            resolve();
         });
     }
 

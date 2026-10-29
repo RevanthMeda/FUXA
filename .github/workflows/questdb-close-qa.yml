@@ -1,0 +1,41 @@
+name: QuestDB close ordering QA
+on:
+  push:
+    branches:
+      - qa/questdb-close-20261029
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 24]
+    defaults:
+      run:
+        working-directory: source/server
+    steps:
+      - name: Check out QA definition
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          persist-credentials: false
+      - name: Check out exact contribution
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ac24f1582074a147a77571c0c4cf2d0e65e617b5
+          path: source
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Runtime versions
+        run: node --version && npm --version
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: QuestDB lifecycle regressions
+        run: npx mocha --timeout 10000 test/storage/questdbClose.test.js test/storage/questdb.test.js
+      - name: Complete backend suite
+        run: npm test

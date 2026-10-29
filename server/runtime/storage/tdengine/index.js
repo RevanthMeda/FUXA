@@ -48,13 +48,14 @@ function TDengine(_settings, _log, _currentStorage) {
         const cursor = conn.cursor();
         for (const tagid in tagsValues) {
             let tag = tagsValues[tagid];
-            if (!tag.daq || utils.isNullOrUndefined(tag.value) || Number.isNaN(tag.value)) {
-                if (tag.daq.restored) {
-                    dataToRestore.push({ id: tag.id, deviceId: deviceId, value: tag.value });
-                }
-                if (!tag.daq.enabled) {
-                    continue;
-                }
+            if (!tag.daq) {
+                continue;
+            }
+            if (tag.daq.restored) {
+                dataToRestore.push({ id: tag.id, deviceId: deviceId, value: tag.value });
+            }
+            if (!tag.daq.enabled || utils.isNullOrUndefined(tag.value) || Number.isNaN(tag.value)) {
+                continue;
             }
             const safeDeviceId = quoteTdIdentifier(deviceId);
             const safeDeviceTag = escapeTdString(deviceId);

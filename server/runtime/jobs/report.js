@@ -2,6 +2,7 @@
 * Report: get data, create/send/store pdf
 */
 const utils = require('../utils');
+const { pipeline } = require('stream');
 const Pdfmake = require('pdfmake');
 var fs = require('fs')
 var path = require('path');
@@ -89,13 +90,16 @@ function Report(_property, _runtime) {
             let pdfmake = new Pdfmake(fonts);
             await _getPdfContent(property).then(content => {
                 let docPath = path.join(runtime.settings.reportsDir,`${property.name}_${utils.getDate(new Date())}.pdf`);
-                pdfDoc = pdfmake.createPdfKitDocument(content, {});
+                const pdfDoc = pdfmake.createPdfKitDocument(content, {});
                 const stream = fs.createWriteStream(docPath);
-                pdfDoc.pipe(stream);
-                pdfDoc.end();
-                stream.on("finish", function() {
-                    resolve(docPath);
+                pipeline(pdfDoc, stream, function(err) {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        resolve(docPath);
+                    }
                 });
+                pdfDoc.end();
             }).catch(function (err) {
                 reject(err);
             });

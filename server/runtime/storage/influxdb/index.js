@@ -102,13 +102,14 @@ function Influx(_settings, _log, _currentStorate) {
         var dataToRestore = [];
         for (var tagid in tagsValues) {
             let tag = tagsValues[tagid];
-            if (tag.daq && !(utils.isNullOrUndefined(tag.value) || Number.isNaN(tag.value))) {
-                if (tag.daq.restored) {
-                    dataToRestore.push({id: tag.id, deviceId: deviceId, value: tag.value});
-                }
-                if (!tag.daq.enabled) {
-                    continue;
-                }
+            if (!tag.daq || utils.isNullOrUndefined(tag.value) || Number.isNaN(tag.value)) {
+                continue;
+            }
+            if (tag.daq.restored) {
+                dataToRestore.push({id: tag.id, deviceId: deviceId, value: tag.value});
+            }
+            if (!tag.daq.enabled) {
+                continue;
             }
             if (influxdbVersion === VERSION_18_FLUX) {
                 const tags = {

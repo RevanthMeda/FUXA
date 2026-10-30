@@ -92,9 +92,9 @@ function JobsManager(_runtime) {
             if (jobsList.length) {
                 var current = new Date().getTime();
                 if (forceCheck || current - lastCheck > JOBS_CHECK_STATUS_INTERVAL) {
-                    lastCheck = current;
-                    forceCheck = false;
                     if (_checkWorking(true)) {
+                        lastCheck = current;
+                        forceCheck = false;
                         _checkJobs().then(function () {
                             _checkWorking(false);
                         }).catch(function (err) {

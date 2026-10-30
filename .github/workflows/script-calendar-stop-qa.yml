@@ -25,6 +25,7 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
           ref: d1f67dd5799dc5dfe2d90bc51c8896feb064e36d
+          fetch-depth: 2
           path: source
           persist-credentials: false
       - name: Set up Node
@@ -37,5 +38,7 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Script calendar stop regressions
         run: npx mocha --timeout 10000 test/runtime/scriptCalendarStop.test.js
+      - name: Verify tests reject the original runtime
+        run: node ../../qa-script-calendar-negative.cjs
       - name: Complete backend suite
         run: npm test

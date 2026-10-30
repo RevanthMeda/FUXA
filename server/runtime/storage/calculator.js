@@ -184,25 +184,16 @@ function getStepDate(ts, type, toadd) {
     if (type === ReportIntervalType.day) {
         dtRange = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0);
         dtRange.setDate(dt.getDate() + toadd);
-    } else if (type === ReportIntervalType.hour) {
-        dtRange = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), 0, 0);
-        dtRange.setHours(dt.getHours() + toadd);
-    } else if (type === ReportIntervalType.min30) {
-        dtRange = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), 0, 0);
-        var minutesRange = parseInt(dt.getMinutes() / 30);
-        dtRange.setMinutes((minutesRange + toadd) * 30);
-    } else if (type === ReportIntervalType.min15) {
-        dtRange = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), 0, 0);
-        var minutesRange = parseInt(dt.getMinutes() / 15);
-        dtRange.setMinutes((minutesRange + toadd) * 15);
-    } else if (type === ReportIntervalType.min10) {
-        dtRange = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), 0, 0);
-        var minutesRange = parseInt(dt.getMinutes() / 10);
-        dtRange.setMinutes((minutesRange + toadd) * 10);
-    } else { //if (type === ReportIntervalType.min5) {
-        dtRange = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), dt.getHours(), 0, 0);
-        var minutesRange = parseInt(dt.getMinutes() / 5);
-        dtRange.setMinutes((minutesRange + toadd) * 5);
+    } else {
+        const minutes = type === ReportIntervalType.hour ? 60
+            : type === ReportIntervalType.min30 ? 30
+            : type === ReportIntervalType.min15 ? 15
+            : type === ReportIntervalType.min10 ? 10 : 5;
+        // Preserve the offset of repeated local times, then advance by elapsed
+        // minutes so both occurrences of a fall-back interval remain distinct.
+        const elapsed = (dt.getMinutes() % minutes) * 60000
+            + dt.getSeconds() * 1000 + dt.getMilliseconds();
+        dtRange = new Date(dt.getTime() - elapsed + toadd * minutes * 60000);
     }
     return dtRange;
 }

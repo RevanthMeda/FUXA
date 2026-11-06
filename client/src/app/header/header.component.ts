@@ -186,6 +186,10 @@ export class HeaderComponent implements AfterViewInit, OnDestroy {
         let reader = new FileReader();
         reader.onload = (data) => {
             let prj = JSON.parse(reader.result.toString());
+            // Opening a project replaces the only project held by the runtime.
+            // Export the current one first so a normal Save cannot be mistaken for
+            // a second persistent project slot.
+            this.projectService.saveAs();
             this.projectService.setProject(prj, true);
         };
 

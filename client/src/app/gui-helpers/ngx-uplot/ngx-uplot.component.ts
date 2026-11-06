@@ -425,6 +425,32 @@ export class NgxUplotComponent implements OnInit, OnDestroy {
 
     addSerie(index: number, attribute: Series) {
         this.data.push([null,null]);
+        if (attribute.lineInterpolation !== this.lineInterpolations.none) {
+            attribute.points = {
+                ...attribute.points,
+                filter: (self, seriesIndex, show) => {
+                    // uPlot bases its default point visibility on the density of the
+                    // shared x-axis. If another series supplies many timestamps, a
+                    // series with one value can therefore have neither a line nor a
+                    // point. Draw only that isolated value when the default filter
+                    // would otherwise hide all points.
+                    if (show) {
+                        return null;
+                    }
+                    const values = self.data[seriesIndex] as (number | null)[];
+                    let pointIndex = -1;
+                    for (let i = 0; i < values.length; i++) {
+                        if (values[i] !== null && values[i] !== undefined) {
+                            if (pointIndex >= 0) {
+                                return null;
+                            }
+                            pointIndex = i;
+                        }
+                    }
+                    return pointIndex >= 0 ? [pointIndex] : null;
+                }
+            };
+        }
         if (attribute.lineInterpolation === this.lineInterpolations.stepAfter) {
             attribute.paths = uPlot.paths.stepped({ align: 1 });
         } else if (attribute.lineInterpolation === this.lineInterpolations.stepBefore) {

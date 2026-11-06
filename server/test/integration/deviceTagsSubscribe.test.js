@@ -205,5 +205,36 @@ describe('device-tags-subscribe payload validation', () => {
         assert.deepEqual(Array.from(message.values, value => value.id), [TAG]);
         bad.close();
     });
+
+    it('reads only the values requested by a keyed subscription', async () => {
+        const observer = await session(operatorToken('focused-observer'));
+        const subscribed = ['tag-17', 'tag-1983'];
+
+        observer.emit('device-tags-subscribe', { tagsId: subscribed });
+        await barrier(observer);
+
+        let valuesRead = 0;
+        const values = {};
+        for (let index = 0; index < 2000; index++) {
+            const id = `tag-${index}`;
+            Object.defineProperty(values, id, {
+                enumerable: true,
+                get() {
+                    valuesRead++;
+                    return { id, value: index, timestamp: index, quality: 'good' };
+                }
+            });
+        }
+
+        const received = waitForEvent(observer, Events.IoEventTypes.DEVICE_VALUES,
+            message => Array.isArray(message?.values) && message.values.length === subscribed.length);
+        runtime.events.emit('device-value:changed', { id: 'large-device', values });
+        const message = await received;
+
+        assert.deepEqual(Array.from(message.values, value => value.id), subscribed);
+        assert.equal(valuesRead, subscribed.length,
+            'delivery should not materialize every device value for a focused subscription');
+        observer.close();
+    });
 });
 

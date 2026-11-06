@@ -622,9 +622,7 @@ function updateDeviceValues(event) {
                     const subscriptions = Array.isArray(socket.tagsClientSubscriptions)
                         ? socket.tagsClientSubscriptions
                         : [];
-                    const tags = Object.values(event.values).filter((tag) => {
-                        return subscriptions.includes(tag.id);
-                    });
+                    const tags = subscribedTags(event.values, subscriptions);
                     socket.emit(Events.IoEventTypes.DEVICE_VALUES, {
                         id: event.id,
                         values: tagsToSend(tags)
@@ -647,6 +645,24 @@ function updateDeviceValues(event) {
     } catch (err) {
         logger.error('Error updating device values: ' + err.message);
     }
+}
+
+function subscribedTags(values, subscriptions) {
+    if (!values || typeof values !== 'object' || subscriptions.length === 0) {
+        return [];
+    }
+    const tags = [];
+    const emitted = new Set();
+    subscriptions.forEach((id) => {
+        if (!emitted.has(id) && Object.hasOwn(values, id)) {
+            const tag = values[id];
+            if (tag && tag.id === id) {
+                tags.push(tag);
+                emitted.add(id);
+            }
+        }
+    });
+    return tags;
 }
 
 function tagsToSend(tags) {

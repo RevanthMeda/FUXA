@@ -200,7 +200,7 @@ function init(_io, _api, _settings, _log, eventsMain) {
             }
         });
         // client ask device values
-        socket.on(Events.IoEventTypes.DEVICE_VALUES, (message) => {
+        socket.on(Events.IoEventTypes.DEVICE_VALUES, async (message) => {
             try {
                 if (message === 'get' || message?.cmd === 'get') {
                     var adevs = devices.getDevicesValues();
@@ -213,7 +213,7 @@ function init(_io, _api, _settings, _log, eventsMain) {
                         socket.emit(Events.IoEventTypes.DEVICE_VALUES, { cmd: 'set-unauthorized', var: message.var });
                         return;
                     }
-                    devices.setDeviceValue(message.var.source, message.var.id, message.var.value, message.fnc);
+                    await devices.setDeviceValue(message.var.source, message.var.id, message.var.value, message.fnc);
                 }
             } catch (err) {
                 logger.error(`${Events.IoEventTypes.DEVICE_VALUES}: ${err}`);

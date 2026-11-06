@@ -27,6 +27,7 @@ function BACNETclient(_data, _logger, _events, _runtime) {
 
     var devices = {};                   // Devices found { id, maxApdu, segmentation, vendorId }
     var rpmErrorByDevice = {};          // Track RPM error state per device to reduce log noise
+    const RPM_BATCH_SIZE = 20;          // Keep requests within conservative controller APDU limits
 
     /**
      * Connect the client to BACnet device
@@ -138,15 +139,34 @@ function BACNETclient(_data, _logger, _events, _runtime) {
     // Next function wraps the API client.readPropertyMultiple call into a Promise
     // and handles the callbacks with resolve and reject.
     // https://stackoverflow.com/questions/5010288/how-to-make-a-function-wait-until-a-callback-has-been-called-using-node-js
-    this.apiFunctionWrapper = function (deviceAddress, requestArray) {
-        return new Promise((resolve, reject) => {
-            client.readPropertyMultiple(deviceAddress, requestArray, async (err, value) => {
-                if (err) {
-                    reject(err);
-                }
-                resolve(value);
+    this.apiFunctionWrapper = async function (deviceAddress, requestArray) {
+        const chunks = [];
+        for (let i = 0; i < requestArray.length; i += RPM_BATCH_SIZE) {
+            chunks.push(requestArray.slice(i, i + RPM_BATCH_SIZE));
+        }
+
+        let combinedValue = null;
+        for (const chunk of chunks) {
+            const value = await new Promise((resolve, reject) => {
+                client.readPropertyMultiple(deviceAddress, chunk, (err, result) => {
+                    if (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(result);
+                });
             });
-        });
+            if (chunks.length === 1) {
+                return value;
+            }
+            if (!combinedValue) {
+                combinedValue = { ...value, values: [] };
+            }
+            if (value && Array.isArray(value.values)) {
+                combinedValue.values.push(...value.values);
+            }
+        }
+        return combinedValue || { values: [] };
     }
 
     /**

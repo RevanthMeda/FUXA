@@ -21,6 +21,7 @@ function ScriptsManager(_runtime) {
     var scheduledJobs = [];            // Calendar jobs owned by this manager
     var schedulingMap = {};             // Mapped script mit scheduling
     var scheduledScriptFailures = new Set(); // Failed scheduled scripts awaiting recovery
+    var scheduledScriptsRunning = new Set(); // Scheduled scripts with an execution in progress
     var scriptModule = MyScriptModule.create(events, logger);
 
     /**
@@ -167,6 +168,10 @@ function ScriptsManager(_runtime) {
 
     var _runScheduledScript = function (script) {
         const scriptKey = script.id || script.name;
+        if (scheduledScriptsRunning.has(scriptKey)) {
+            return;
+        }
+        scheduledScriptsRunning.add(scriptKey);
         try {
             Promise.resolve(scriptModule.runScriptWithoutParameter(script)).then(() => {
                 if (scheduledScriptFailures.delete(scriptKey)) {
@@ -177,8 +182,11 @@ function ScriptsManager(_runtime) {
                     scheduledScriptFailures.add(scriptKey);
                     logger.error(err && err.message ? err.message : err);
                 }
+            }).finally(() => {
+                scheduledScriptsRunning.delete(scriptKey);
             });
         } catch (err) {
+            scheduledScriptsRunning.delete(scriptKey);
             if (!scheduledScriptFailures.has(scriptKey)) {
                 scheduledScriptFailures.add(scriptKey);
                 logger.error(err && err.message ? err.message : err);

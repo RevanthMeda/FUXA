@@ -73,6 +73,7 @@ export class DeviceListComponent implements OnInit, AfterViewInit {
     ngAfterViewInit() {
         this.dataSource.paginator = this.paginator;
         this.dataSource.sort = this.sort;
+        this.onVisibleTagsChanged();
     }
 
     mapTags() {
@@ -92,7 +93,26 @@ export class DeviceListComponent implements OnInit, AfterViewInit {
             tags = {};
         }
         this.dataSource.data = Object.values(tags);
-        this.hmiService.viewsTagsSubscribe(Object.keys(tags));
+        this.paginator?.firstPage();
+        this.onVisibleTagsChanged();
+    }
+
+    onVisibleTagsChanged() {
+        const filteredTags = this.dataSource.filter
+            ? this.dataSource.filteredData
+            : this.dataSource.data;
+        const orderedTags = this.sort?.active && this.sort.direction
+            ? this.dataSource.sortData(filteredTags.slice(), this.sort)
+            : filteredTags;
+        const pageSize = this.paginator?.pageSize || 25;
+        const pageIndex = this.paginator?.pageIndex || 0;
+        const firstRow = pageIndex * pageSize;
+        const visibleTagIds = orderedTags
+            .slice(firstRow, firstRow + pageSize)
+            .map(tag => tag.id)
+            .filter(Boolean);
+
+        this.hmiService.viewsTagsSubscribe(visibleTagIds, true);
     }
 
     onDeviceChange(source) {
@@ -186,6 +206,8 @@ export class DeviceListComponent implements OnInit, AfterViewInit {
         filterValue = filterValue.trim(); // Remove whitespace
         filterValue = filterValue.toLowerCase(); // MatTableDataSource defaults to lowercase matches
         this.dataSource.filter = filterValue;
+        this.paginator?.firstPage();
+        this.onVisibleTagsChanged();
     }
 
     /** Edit the tag */

@@ -18,7 +18,7 @@
     </div>
     <div class="table-container">
         <div class="table-scroll">
-            <mat-table #table [dataSource]="dataSource" matSort>
+            <mat-table #table [dataSource]="dataSource" matSort (matSortChange)="onVisibleTagsChanged()">
                 <!-- Checkbox Column -->
                 <ng-container matColumnDef="select">
                     <mat-header-cell *matHeaderCellDef [ngClass]="'selectidthClass'">
@@ -176,6 +176,7 @@
                 <mat-row *matRowDef="let row; columns: displayedColumns;" class="my-mat-row" [ngStyle]="{'min-width.px': tableWidth}"></mat-row>
             </mat-table>
         </div>
-        <mat-paginator [pageSizeOptions]="[10, 25, 100]" [pageSize]="25" class="paginator"></mat-paginator>
+        <mat-paginator [pageSizeOptions]="[10, 25, 100]" [pageSize]="25" class="paginator"
+            (page)="onVisibleTagsChanged()"></mat-paginator>
     </div>
 </div>
